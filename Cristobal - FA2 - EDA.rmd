@@ -1,0 +1,79 @@
+---
+title: "Cristobal - FA2 - EDA"
+output:
+  html_document:
+    df_print: paged
+date: "2024-02-21"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Loading Libraries
+```{r}
+library(tidyverse)
+library(readr)
+```
+
+# CyTOF Data
+
+### Loading Data
+```{r}
+cytof_data <- read_csv("cytof_one_experiment.csv") # Replace with the actual path to your CSV file
+
+long_data <- pivot_longer(cytof_data, cols = everything(), names_to = "Protein", values_to = "Amount")
+cat("Number of rows in the reshaped dataset:", nrow(long_data), "\n")
+```
+### Summarizing and Plotting
+```{r}
+protein_summary <- long_data %>%
+  group_by(Protein) %>%
+  summarise(Median = median(Amount, na.rm = TRUE), MAD = mad(Amount, na.rm = TRUE))
+```
+
+```{r}
+ggplot(protein_summary, aes(x = MAD, y = Median)) +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "Spread-Location (S-L) Plot", x = "Median Absolute Deviation (MAD)", y = "Median Protein Level")
+```
+
+
+### Interpretation
+
+The Spread-Location (S-L) plot we have appears to show a relationship between the median protein level on the y-axis and the median absolute deviation (MAD), on the x-axis, of those levels.
+
+Observations:
+
+- Most of the proteins have low MAD values, suggesting that for these proteins, the data points are clustered closely around the median, indicating low variability in protein expression levels.
+- As the median protein level increases, there doesn't seem to be a consistent increase in variability (MAD). The data points are more spread out vertically at higher median values, but they do not systematically move rightward (towards higher MAD values). This suggests that higher expression levels of proteins do not necessarily correspond to higher variability.
+- There are a few proteins with higher MAD values, which indicate more variability in the amount of these proteins across the cells measured.
+
+In essence, the plot does not show a clear positive trend between the median and MAD, meaning there isn't a strong relationship where proteins with higher median levels consistently have greater variability (higher MAD).
+
+
+# Gymnastics 2
+
+### Loading Library
+
+```{r}
+library(dcldata)
+```
+### Loading Dataset
+```{r} 
+data(example_gymnastics_2)
+```
+
+### Reshaping Data
+```{r} 
+reshaped_data <- example_gymnastics_2 %>%
+  pivot_longer(
+    cols = -country,
+    names_to = "event_year",
+    values_to = "score"
+  ) %>%
+  separate(event_year, into = c("event", "year"), sep = "_")
+
+print(reshaped_data)
+```
