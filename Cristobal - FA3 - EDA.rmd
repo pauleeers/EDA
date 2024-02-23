@@ -1,0 +1,84 @@
+---
+title: "Cristobal - FA3 - EDA"
+output: html_document
+date: "2024-02-23"
+---
+# Diamonds dataset
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+```
+
+### Loading Data
+```{r}
+df <- read.csv('diamonds.csv')
+```
+
+### Creating Histogram
+```{r}
+ggplot(diamonds, aes(x = carat)) + 
+  geom_histogram(bins = 30)
+```
+
+### Checking Default Values
+```{r}
+p <- ggplot(diamonds, aes(x = carat)) + 
+  geom_histogram(bins = 30)
+
+p$layers
+```
+
+### Rewriting Using Layer
+```{r}
+ggplot(diamonds, aes(x = carat)) + 
+  layer(
+    stat = "bin", 
+    data = diamonds, 
+    mapping = aes(x = carat), 
+    geom = "bar", 
+    position = "stack", 
+    show.legend = NA, 
+    inherit.aes = TRUE,
+    params = list(bins = 30)
+  )
+```
+
+### Modifying Using geom_line
+```{r}
+ggplot(diamonds, aes(x = carat)) + 
+  layer(
+    stat = "bin", 
+    data = diamonds, 
+    mapping = aes(x = carat), 
+    geom = "line", 
+    position = "identity", 
+    params = list(bins = 30)
+  )
+```
+
+### Adding Color Aesthetic
+```{r}
+ggplot(diamonds, aes(x = carat, fill = color)) + 
+  geom_histogram(bins = 30, position = "identity")
+```
+
+### Changing Position Adjustment
+
+Since the default position is stack, we're going to change it to dodge.
+```{r}
+ggplot(diamonds, aes(x = carat, fill = color)) + 
+  geom_histogram(bins = 30, position = "dodge")
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
