@@ -1,0 +1,436 @@
+---
+title: "Cristobal - FA4 - EDA"
+output: html_document
+date: "2024-02-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Cristobal - FA4 - EDA
+# Mortality and Diamonds Datasets
+
+## Loading Libraries
+```{r}
+library(ggplot2)
+library(dplyr)
+```
+## Loading Datasets
+```{r}
+mortality <- read.csv("mortality_by_latitude.csv")
+diamonds <- read.csv("diamonds.csv")
+```
+
+# Mortality Dataset
+
+## Plotting Mortality Index vs Mean Average Temperature
+```{r}
+# Original relationship plot
+ggplot(mortality, aes(x=temperature, y=mortality_index)) +
+  geom_point() +
+  labs(title="Mortality Index vs. Mean Average Temperature",
+       x="Mean Average Temperature",
+       y="Mortality Index")
+```
+
+## Applying Log Transform
+```{r}
+mortality$log_mortality_index <- log(mortality$mortality_index)
+```
+
+### Fitting a linear model and adding residuals
+```{r}
+model <- lm(log_mortality_index ~ temperature, data = mortality)
+
+mortality <- mortality %>%
+  mutate(fitted_values = predict(model),
+         residuals = residuals(model))
+```
+
+### Plotting Log Transformed
+```{r}
+ggplot(mortality, aes(x=temperature, y=log_mortality_index)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title="Log Transformed Mortality Index vs. Mean Average Temperature",
+       x="Mean Average Temperature",
+       y="Log of Mortality Index")
+```
+
+
+### Plotting Residuals
+```{r}
+# Plot the residuals to check for patterns
+ggplot(mortality, aes(x=fitted_values, y=residuals)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  geom_point() +
+  labs(title="Residuals vs. Fitted Values",
+       x="Fitted Values",
+       y="Residuals")
+```
+
+We can see that the model fits, since the residuals are very close to zero. However, the log transformed index values aren't very fit to the trendline. We can try different transformations to see if we can find a better fit.
+
+## Applying other Transforms
+
+### Applying Squareroot, Reciprocal, and Exponential Transforms
+```{r}
+mortality$sqrt_mortality_index <- sqrt(mortality$mortality_index)
+mortality$reciprocal_mortality_index <- 1 / mortality$mortality_index
+mortality$exp_mortality_index <- exp(mortality$mortality_index - min(mortality$mortality_index))
+```
+
+### Fitting to their respective Linear Models
+```{r}
+model_sqrt <- lm(sqrt_mortality_index ~ temperature, data = mortality)
+model_reciprocal <- lm(reciprocal_mortality_index ~ temperature, data = mortality)
+model_exp <- lm(exp_mortality_index ~ temperature, data = mortality)
+
+```
+
+### Adding Residuals
+```{r}
+mortality$residuals_sqrt <- residuals(model_sqrt)
+mortality$residuals_reciprocal <- residuals(model_reciprocal)
+mortality$residuals_exp <- residuals(model_exp)
+```
+
+
+### Making a function to plot each transform
+```{r}
+plot_transformation <- function(mortality, transform, model_resid, title_suffix) {
+  plot1 <- ggplot(mortality, aes(x = temperature, y = !!sym(transform))) +
+    geom_point() +
+    geom_smooth(method = "lm", color = "blue") +
+    labs(title = paste("Transformation:", title_suffix, "vs. Mean Average Temperature"),
+         x = "Mean Average Temperature",
+         y = paste("Transformed", title_suffix))
+  
+  plot2 <- ggplot(mortality, aes_string(x = paste0("fitted(", model_resid, ")"), 
+                                   y = paste0("residuals(", model_resid, ")"))) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    geom_point() +
+    labs(title = paste("Residuals vs. Fitted Values for", title_suffix),
+         x = "Fitted Values",
+         y = "Residuals")
+  
+  list(plot1, plot2)
+}
+
+```
+
+
+### Square Root Transform Plots
+```{r}
+plots_sqrt <- plot_transformation(mortality, "sqrt_mortality_index", "model_sqrt", "Square Root Mortality Index")
+plots_sqrt[[1]]
+plots_sqrt[[2]]
+```
+
+
+### Reciprocal Transform Plots
+```{r}
+plots_reciprocal <- plot_transformation(mortality, "reciprocal_mortality_index", "model_reciprocal", "Reciprocal Mortality Index")
+plots_reciprocal[[1]]
+plots_reciprocal[[2]]
+```
+
+
+### Exponential Transform Plots
+```{r}
+plots_exp <- plot_transformation(mortality, "exp_mortality_index", "model_exp", "Exponential Mortality Index")
+plots_exp[[1]]
+plots_exp[[2]]
+```
+
+
+We can see that out of all the transforms that we tried, we got closest to the trend line with the exponential transform. However, the exponents used are too large, we could make the data hard to interpret. The other transforms yielded similar results with the log transform.
+
+By observation, we can see that trying different transforms to make the plots linear tend to fail. This could indicate that the data itself is complex and the relationship between the Mortality Index and Mean Average Temperature cannot be captured by using only linear transforms.
+
+
+Moving forward, let's proceed with the diamonds dataset.
+
+# Diamonds Dataset
+```{r}
+# Apply logarithmic transformation to the price
+diamonds$log_price <- log(diamonds$price)
+```
+
+## Plotting with a Loess smoother
+```{r}
+ggplot(diamonds, aes(x = carat, y = log_price)) +
+  geom_point(alpha = 0.5) +  
+  geom_smooth(method = "loess", color = "red") +  
+  labs(title = "Log Price as a Function of Carat with Loess Smoother",
+       x = "Carat",
+       y = "Log of Price")
+```
+
+
+## Trying Different Combinations of Spans and Degrees
+
+We can try different combinations of spans and degrees for the Loess smoother to see how the models fit by reviewing the residuals for each combination
+
+
+### Span = .2, Degree = 1
+
+#### Plotting
+```{r}
+ggplot(diamonds, aes(x = carat, y = log_price)) +
+      geom_point(alpha = 0.5) +
+      geom_smooth(method = "loess", formula = y ~ x, span = .2, degree = 1, colour = "red") +
+      labs(title = paste("Loess Smoother - Span:", .2, "Degree:", 1),
+           x = "Carat",
+           y = "Log of Price")
+```
+
+
+
+#### Checking Residuals
+```{r}
+# Fit the loess model with specified span and degree
+loess_fit1 <- loess(log_price ~ carat, data = diamonds, span = 0.2, degree = 1)
+
+# Calculate the fitted values and residuals
+diamonds$fitted_values <- predict(loess_fit1)
+diamonds$residuals <- diamonds$log_price - diamonds$fitted_values
+
+# Plotting the residuals
+ggplot(diamonds, aes(x = carat, y = residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals of Loess Model Fit (Span = 0.2, Degree = 1)",
+       x = "Carat",
+       y = "Residuals")
+```
+
+
+### Span = .5, Degree = 1
+
+#### Plotting
+```{r}
+ggplot(diamonds, aes(x = carat, y = log_price)) +
+      geom_point(alpha = 0.5) +
+      geom_smooth(method = "loess", formula = y ~ x, span = .5, degree = 1, colour = "red") +
+      labs(title = paste("Loess Smoother - Span:", .5, "Degree:", 1),
+           x = "Carat",
+           y = "Log of Price")
+```
+
+
+#### Checking Residuals
+```{r}
+# Fit the loess model with specified span and degree
+loess_fit2 <- loess(log_price ~ carat, data = diamonds, span = 0.5, degree = 1)
+
+# Calculate the fitted values and residuals
+diamonds$fitted_values <- predict(loess_fit2)
+diamonds$residuals <- diamonds$log_price - diamonds$fitted_values
+
+# Plotting the residuals
+ggplot(diamonds, aes(x = carat, y = residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals of Loess Model Fit (Span = 0.5, Degree = 1)",
+       x = "Carat",
+       y = "Residuals")
+```
+
+
+### Span = .8, Degree = 1
+
+#### Plotting
+```{r}
+ggplot(diamonds, aes(x = carat, y = log_price)) +
+      geom_point(alpha = 0.5) +
+      geom_smooth(method = "loess", formula = y ~ x, span = .8, degree = 1, colour = "red") +
+      labs(title = paste("Loess Smoother - Span:", .8, "Degree:", 1),
+           x = "Carat",
+           y = "Log of Price")
+```
+
+
+#### Checking Residuals
+```{r}
+# Fit the loess model with specified span and degree
+loess_fit3 <- loess(log_price ~ carat, data = diamonds, span = 0.8, degree = 1)
+
+# Calculate the fitted values and residuals
+diamonds$fitted_values <- predict(loess_fit3)
+diamonds$residuals <- diamonds$log_price - diamonds$fitted_values
+
+# Plotting the residuals
+ggplot(diamonds, aes(x = carat, y = residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals of Loess Model Fit (Span = 0.8, Degree = 1)",
+       x = "Carat",
+       y = "Residuals")
+```
+
+
+### Span = .2, Degree = 2
+
+#### Plotting
+```{r}
+ggplot(diamonds, aes(x = carat, y = log_price)) +
+      geom_point(alpha = 0.5) +
+      geom_smooth(method = "loess", formula = y ~ x, span = .2, degree = 2, colour = "red") +
+      labs(title = paste("Loess Smoother - Span:", .2, "Degree:", 2),
+           x = "Carat",
+           y = "Log of Price")
+```
+
+
+#### Checking Residuals
+```{r}
+# Fit the loess model with specified span and degree
+loess_fit4 <- loess(log_price ~ carat, data = diamonds, span = 0.2, degree = 2)
+
+# Calculate the fitted values and residuals
+diamonds$fitted_values <- predict(loess_fit4)
+diamonds$residuals <- diamonds$log_price - diamonds$fitted_values
+
+# Plotting the residuals
+ggplot(diamonds, aes(x = carat, y = residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals of Loess Model Fit (Span = 0.2, Degree = 2)",
+       x = "Carat",
+       y = "Residuals")
+```
+
+
+### Span = .5, Degree = 2
+
+#### Plotting
+```{r}
+ggplot(diamonds, aes(x = carat, y = log_price)) +
+      geom_point(alpha = 0.5) +
+      geom_smooth(method = "loess", formula = y ~ x, span = .5, degree = 2, colour = "red") +
+      labs(title = paste("Loess Smoother - Span:", .5, "Degree:", 2),
+           x = "Carat",
+           y = "Log of Price")
+```
+
+
+#### Checking Residuals
+```{r}
+# Fit the loess model with specified span and degree
+loess_fit5 <- loess(log_price ~ carat, data = diamonds, span = 0.5, degree = 2)
+
+# Calculate the fitted values and residuals
+diamonds$fitted_values <- predict(loess_fit5)
+diamonds$residuals <- diamonds$log_price - diamonds$fitted_values
+
+# Plotting the residuals
+ggplot(diamonds, aes(x = carat, y = residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals of Loess Model Fit (Span = 0.5, Degree = 2)",
+       x = "Carat",
+       y = "Residuals")
+```
+
+
+### Span = .8, Degree = 2
+
+#### Plotting
+```{r}
+ggplot(diamonds, aes(x = carat, y = log_price)) +
+      geom_point(alpha = 0.5) +
+      geom_smooth(method = "loess", formula = y ~ x, span = .8, degree = 2, colour = "red") +
+      labs(title = paste("Loess Smoother - Span:", .8, "Degree:", 2),
+           x = "Carat",
+           y = "Log of Price")
+```
+
+
+#### Checking Residuals
+```{r}
+# Fit the loess model with specified span and degree
+loess_fit6 <- loess(log_price ~ carat, data = diamonds, span = 0.8, degree = 2)
+
+# Calculate the fitted values and residuals
+diamonds$fitted_values <- predict(loess_fit6)
+diamonds$residuals <- diamonds$log_price - diamonds$fitted_values
+
+# Plotting the residuals
+ggplot(diamonds, aes(x = carat, y = residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals of Loess Model Fit (Span = 0.8, Degree = 2)",
+       x = "Carat",
+       y = "Residuals")
+```
+
+
+### Observation
+
+Having tried different combinations of spans and degrees and achieving similar residuals, we can say that:
+
+- The underlying relationship between carat size and log price might be robust to the choice of span and degree, suggesting that the trend is strong and clear enough that it's similarly captured by various loess configurations.
+
+- The data may have a dominant linear or nearly linear trend that isn't significantly affected by the degree of the polynomial used in the local fitting.
+
+- The span parameter has a more pronounced effect on the fit than the degree. If changes in the span don't alter the residuals much, it could mean that the data doesn't have a lot of local variation, and thus, the loess smoother is not overly sensitive to the exact proportion of points included in each local regression.
+
+- It could also be possible that the residuals are insensitive to the chosen parameters within the range you tested. Sometimes, the differences become apparent only with more extreme values or in the presence of significant non-linearity or heteroscedasticity in the data.
+
+In summary, similar residuals across different loess configurations suggest that the data might have a strong, consistent pattern that's not particularly sensitive to the exact form of the non-parametric fit.
+
+## Polynomial + Step Function 
+
+### Trying with a 2nd degree polynomial with a step of carat = 1
+```{r}
+diamonds$step_variable <- ifelse(diamonds$carat > 1, 1, 0)
+poly_step_fit <- lm(log_price ~ poly(carat, 2) + step_variable, data = diamonds)
+diamonds$poly_step_resid <- residuals(poly_step_fit)
+```
+
+
+### Checking Residuals of Polynomial
+```{r}
+# Plotting the residuals
+ggplot(diamonds, aes(x = carat, y = poly_step_resid)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals of Polynomial + Step Function Model Fit",
+       x = "Carat",
+       y = "Residuals")
+```
+
+
+### Rechecking loess to compare
+```{r}
+# Fit the loess model to the data
+loess_fit <- loess(log_price ~ carat, data = diamonds)
+# Calculate the fitted values
+diamonds$fitted_values <- predict(loess_fit)
+# Calculate residuals
+diamonds$residuals <- diamonds$log_price - diamonds$fitted_values
+
+```
+
+
+### loess Residuals
+```{r}
+# Plotting the residuals
+ggplot(diamonds, aes(x = carat, y = residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals of Loess Model Fit",
+       x = "Carat",
+       y = "Residuals")
+```
+
+
+We can see that the residuals of the loess and Polynomial + Step function Regression look similar. However, the Polynomial method gives outliers that are way further to 0 compared to the outliers the Loess one has. 
+
+Given this, we can say that the loess smoother fits the data better than the Polynomial + Step function Regression.
+
+
+
+
